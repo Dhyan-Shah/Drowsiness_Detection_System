@@ -1,4 +1,3 @@
-
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'       # suppress TF info/warnings/errors
 os.environ['GLOG_minloglevel']      = '3'       # suppress MediaPipe glog messages
@@ -178,6 +177,48 @@ def telegram_alert(frame, alert_level, drowsy_dur, ear, score):
 # Comment out on RPi and use buzzer_pwm instead
 # ============================================================
 import winsound
+import pygame
+
+# ============================================================
+# Voice Alert — MP3 (plays on critical + escalated)
+# Works on both Windows and RPi (needs speaker on 3.5mm/USB)
+# ============================================================
+# Full path — same folder as script
+SCRIPT_DIR       = os.path.dirname(os.path.abspath(__file__))
+VOICE_ALERT_FILE = os.path.join(SCRIPT_DIR, "Police Siren Sound Effect.mp3")
+_voice_playing   = False
+
+# Init pygame mixer
+try:
+    pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
+    if os.path.exists(VOICE_ALERT_FILE):
+        print(f"[VOICE] MP3 found: {VOICE_ALERT_FILE}")
+    else:
+        print(f"[VOICE] WARNING: MP3 not found at {VOICE_ALERT_FILE}")
+except Exception as e:
+    print(f"[VOICE] pygame init failed: {e}")
+
+def play_voice_alert():
+    """Play mp3 alert in background thread — won't block detection."""
+    def _play():
+        global _voice_playing
+        if _voice_playing:
+            return   # don't overlap if already playing
+        if not os.path.exists(VOICE_ALERT_FILE):
+            print(f"[VOICE] MP3 file not found — skipping")
+            return
+        try:
+            _voice_playing = True
+            pygame.mixer.music.load(VOICE_ALERT_FILE)
+            pygame.mixer.music.set_volume(1.0)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                time.sleep(0.1)
+        except Exception as e:
+            print(f"[VOICE] Playback failed: {e}")
+        finally:
+            _voice_playing = False
+    threading.Thread(target=_play, daemon=True).start()
 
 def _beep_thread(level):
     if level == "warning":
@@ -441,7 +482,7 @@ def draw_hud(frame, ear, mar, pitch, yaw, roll, score,
 # ============================================================
 # Windows → cv2.VideoCapture(0, cv2.CAP_DSHOW)
 # RPi     → cv2.VideoCapture(0)   ← remove CAP_DSHOW
-cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+cap = cv2.VideoCapture(0)   # Windows: add cv2.CAP_DSHOW if needed | RPi: keep as is
 cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
@@ -568,12 +609,15 @@ with mp_face_mesh.FaceMesh(
             # LED
             set_leds(awake=not any_alert)
 
-            # Buzzer
+            # Buzzer + Voice Alert
             if any_alert and (now - last_alert_time > alert_cooldown):
                 last_alert_time = now
                 buzz_alert(alert_level if alert_level == "escalated"
                            else "critical" if alert_level == "critical"
                            else "warning")   # warning covers yawn + ear + head
+                # Voice alert plays on critical and escalated only
+                if alert_level in ("critical", "escalated"):
+                    play_voice_alert()
 
             # Telegram alert (only on escalated or critical, with cooldown)
             if any_alert and alert_level in ("escalated", "critical"):
