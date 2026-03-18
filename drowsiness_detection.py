@@ -53,8 +53,8 @@ def set_leds(awake):
 # ============================================================
 # Telegram Alert Config
 # ============================================================
-TELEGRAM_TOKEN   = "8618054934:AAEXUCQdhbW3lgVZTXE-4Ig_JCWFenN2JzU"
-TELEGRAM_CHAT_ID = "6291964543"
+TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("CHAT_ID")
 TELEGRAM_URL     = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 
 # Telegram cooldown — don't spam messages (seconds)
