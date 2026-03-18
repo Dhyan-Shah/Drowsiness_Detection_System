@@ -258,7 +258,7 @@ timestamp, ear, pitch, yaw, roll, drowsiness_score, alert_level
 
 | Change | Windows | Raspberry Pi |
 |---|---|---|
-| Camera init | `cv2.VideoCapture(0, cv2.CAP_DSHOW)` | `Picamera2()` |
+| Camera init | `cv2.VideoCapture(0)` | `Picamera2()` |
 | Audio alert | `import winsound` | Comment out, use GPIO buzzer |
 | GPIO buzzer | Commented out | Uncomment GPIO block |
 | GPIO LEDs | Commented out | Uncomment GPIO block |
